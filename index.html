@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>نقشه آب شرب بانه</title>
+  
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+
+  <style>
+    /* فیکس کردن مشکل اسکرول در موبایل */
+    body { touch-action: none; }
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="header-content">
+      <i class="fas fa-faucet-drip"></i> <h1>نقشه دسترسی به نقاط آب شرب بانه</h1>
+    </div>
+  </header>
+
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
+  
+  <script>
+    // 1. تعریف سیستم مختصات UTM برای بانه (Zone 38N)
+    // اگر زون شما فرق دارد، عدد 38 را تغییر دهید
+    const utmProjection = "+proj=utm +zone=38 +datum=WGS84 +units=m +no_defs";
+    
+    // تابع تبدیل UTM به مختصات جغرافیایی (Lat, Lng)
+    function convertUtmToLatLng(easting, northing) {
+      // تبدیل مختصات
+      const result = proj4(utmProjection, 'EPSG:4326', [easting, northing]);
+      // result[1] = Latitude (عرض جغرافیایی), result[0] = Longitude (طول جغرافیایی)
+      return [result[1], result[0]];
+    }
+
+    // 2. راه‌اندازی نقشه
+    // مرکز نقشه روی بانه تنظیم شده است
+    const map = L.map('map', {
+      zoomControl: false // کنترل زوم را جابجا می‌کنیم یا حذف می‌کنیم برای موبایل بهتر است
+    }).setView([35.997, 45.887], 14); 
+
+    // اضافه کردن دکمه زوم در پایین سمت چپ (راحت‌تر برای انگشت شست)
+    L.control.zoom({ position: 'bottomleft' }).addTo(map);
+
+    // لایه نقشه (OpenStreetMap)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap',
+      maxZoom: 19
+    }).addTo(map);
+
+    // 3. آیکون سفارشی (شکل شیر آب)
+    const waterIcon = L.divIcon({
+      className: 'custom-div-icon',
+      html: "<div class='water-icon'><i class='fas fa-glass-water'></i></div>",
+      iconSize: [32, 32],
+      iconAnchor: [16, 16],
+      popupAnchor: [0, -10]
+    });
+
+    // 4. لیست نقاط (مختصات UTM)
+    // ******************************************************
+    // ******************************************************
+    // لیست زیر را با مختصات واقعی خود پر کنید.
+    // فرمت: { name: "نام نقطه", x: عدد_شرقی_easting, y: عدد_شمالی_northing }
+    // ******************************************************
+    const waterPointsUTM = [
+      // این‌ها مختصات رندوم حوالی بانه هستند. شما اعداد خودتان را جایگزین کنید.
+      { id: 1, name: "تانکر میدان جهاد", x: 580500, y: 3984000 },
+      { id: 2, name: "ایستگاه پارک شهر", x: 581000, y: 3984500 },
+      { id: 3, name: "تانکر بلوار شهرداری", x: 579800, y: 3983800 },
+      { id: 4, name: "شیر آب اضطراری بازار", x: 580200, y: 3984200 },
+      { id: 5, name: "منبع آب محله 1", x: 581200, y: 3985000 },
+      { id: 6, name: "منبع آب محله 2", x: 579500, y: 3983500 },
+      // ... تا 40 نقطه می‌توانید اینجا اضافه کنید
+      // فقط کافیست خط بالا را کپی کرده و اعداد x و y را عوض کنید
+    ];
+    
+    // ******************************************************
+
+    // 5. حلقه برای ایجاد مارکرها روی نقشه
+    waterPointsUTM.forEach(point => {
+      // تبدیل مختصات UTM به LatLng
+      const latLng = convertUtmToLatLng(point.x, point.y);
+      
+      // ساخت مارکر
+      const marker = L.marker(latLng, { icon: waterIcon }).addTo(map);
+      
+      // ساخت محتوای پاپ‌آپ (پنجره‌ای که با کلیک باز می‌شود)
+      // لینک مسیریابی: از geo استفاده می‌کنیم که تمام اپ‌ها (گوگل مپ، نشان، بلد) را باز کند
+      // اما گوگل مپ فرمت خاص خود را دارد، برای اطمینان از گوگل مپ استفاده می‌کنیم:
+      const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${latLng[0]},${latLng[1]}`;
+
+      const popupContent = `
+        <div class="popup-content">
+          <h3>${point.name}</h3>
+          <p>کد نقطه: ${point.id}</p>
+          <a href="${googleMapsUrl}" target="_blank" class="navigate-btn">
+            <i class="fas fa-location-arrow"></i> مسیریابی
+          </a>
+        </div>
+      `;
+
+      marker.bindPopup(popupContent, {
+        className: 'custom-popup'
+      });
+    });
+
+  </script>
+</body>
+</html>
